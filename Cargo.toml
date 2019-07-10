@@ -1,0 +1,10 @@
+[package]
+name = "a5-connect-4"
+version = "0.1.0"
+authors = ["Steve Lam <sla336@sfu.ca>"]
+
+[dependencies]
+trees = "0.2.1"
+termion = "1.5.3"
+rand = "0.7.0"
+
