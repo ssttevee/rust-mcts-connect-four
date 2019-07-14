@@ -1,11 +1,12 @@
 extern crate termion;
 
-mod board;
-
 use std::error;
 use std::fmt;
 use std::cmp;
 use std::iter;
+
+use board;
+use board::{Board, Token};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Player {
@@ -24,7 +25,7 @@ impl fmt::Display for Player {
     }
 }
 
-impl board::Token for Player {
+impl Token for Player {
     fn color(&self) -> &dyn termion::color::Color {
         use self::Player::{Player1, Player2};
 
@@ -50,12 +51,12 @@ pub type State = Vec<u8>;
 
 #[derive(Clone)]
 pub struct Game {
-    board: board::Board<Player>,
+    board: Board<Player>,
     win_len: usize,
 
     current_player: Player,
 
-    winner: Option<Player>,
+    winner: Option<(Player, Box<[(usize, usize)]>)>,
 }
 
 impl Game {
@@ -164,10 +165,7 @@ impl Game {
         let row = self.board.drop(col, self.current_player)?;
 
         if let Some(cells) = self.check_winner(self.current_player, col-1, row) {
-            self.winner = Some(self.current_player);
-            for (col, row) in cells.into_iter() {
-                self.board.highlight(*col, *row);
-            }
+            self.winner = Some((self.current_player, cells));
         }
 
         self.current_player = match self.current_player {
@@ -186,8 +184,8 @@ impl Game {
         self.current_player
     }
 
-    pub fn winner(&self) -> Option<Player> {
-        self.winner
+    pub fn winner(&self) -> Option<(Player, Box<[(usize, usize)]>)> {
+        self.winner.clone()
     }
 
     pub fn cols(&self) -> usize {
@@ -213,6 +211,10 @@ impl Game {
             None => Some(col + 1),
             Some(_) => None,
         }).collect()
+    }
+
+    pub fn board(&self) -> Board<Player> {
+        self.board.clone()
     }
 }
 

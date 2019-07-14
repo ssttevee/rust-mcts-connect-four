@@ -15,15 +15,6 @@ pub enum CellState<T: Token> {
     Highlighted(T),
 }
 
-impl <T: Token> CellState<T> {
-    pub fn has(&self, token: T) -> bool {
-        match self {
-            CellState::Filled(p) => *p == token,
-            _ => false,
-        }
-    }
-}
-
 impl <T: Token> fmt::Display for CellState<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::CellState::*;
