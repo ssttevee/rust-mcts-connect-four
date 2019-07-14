@@ -1,6 +1,6 @@
 extern crate termion;
 
-pub mod board;
+mod board;
 
 use std::error;
 use std::fmt;
@@ -46,6 +46,9 @@ impl fmt::Display for GameOverError {
 
 impl error::Error for GameOverError {}
 
+pub type State = Vec<u8>;
+
+#[derive(Clone)]
 pub struct Game {
     board: board::Board<Player>,
     win_len: usize,
@@ -78,7 +81,6 @@ impl Game {
                 move |col| Box::new((col..col + self.win_len).zip(iter::repeat(row))) as Box<dyn iter::Iterator<Item = (usize, usize)> + 'a>
             )
         ));
-
 
         // check diagonal win conditions (top-left to bottom-right)
         let bot_max_search_row = 1 + self.rows() - self.win_len;
@@ -117,11 +119,11 @@ impl Game {
 
             let end_col = cmp::min(max_search_col, 1 + col - (min_row as i8 - row as i8).max(0) as usize);
             let end_row = cmp::max(top_min_search_row as i8 - 1, row as i8 - 1 - (max_col as i8 - col as i8 - 1).min(0)) as usize;
+
             // println!(
             //     "\t({},{})..({},{})",
             //     start_col,
             //     start_row,
-
             //     end_col,
             //     end_row,
             // );
@@ -140,8 +142,10 @@ impl Game {
         let ranges = self.search_ranges(col, row);
         'outer: for range in ranges {
             let v = range.collect::<Vec<_>>();
-            for i in 0 .. v.len() {
-                if !self.board[v[i]].has(player) {
+            for (col, row) in v.clone() {
+                if !self.board.token_at(col, row)
+                    .and_then(|p| Some(p == player))
+                    .unwrap_or(false) {
                     continue 'outer;
                 }
             }
@@ -152,15 +156,12 @@ impl Game {
         None
     }
 
-    pub fn drop(&mut self, col: usize) -> Option<Box<dyn error::Error>> {
+    pub fn drop(&mut self, col: usize) -> Result<usize, Box<dyn error::Error>> {
         if self.over() {
-            return Some(Box::new(GameOverError))
+            return Err(Box::new(GameOverError))
         }
 
-        let row = match self.board.drop(col, self.current_player) {
-            Err(err) => return Some(Box::<dyn error::Error>::from(err)),
-            Ok(row) => row,
-        };
+        let row = self.board.drop(col, self.current_player)?;
 
         if let Some(cells) = self.check_winner(self.current_player, col-1, row) {
             self.winner = Some(self.current_player);
@@ -174,11 +175,11 @@ impl Game {
             Player::Player2 => Player::Player1,
         };
 
-        None
+        Ok(row)
     }
 
     pub fn over(&self) -> bool {
-        self.winner != None
+        self.winner != None || self.valid_moves().len() == 0
     }
 
     pub fn current_player(&self) -> Player {
@@ -195,6 +196,23 @@ impl Game {
 
     pub fn rows(&self) -> usize {
         self.board.rows()
+    }
+
+    pub fn state(&self) -> State {
+        iproduct!(0..self.cols(), 0..self.rows())
+            .map(|(col, row)| match self.board.token_at(col, row) {
+                None => 0,
+                Some(Player::Player1) => 1,
+                Some(Player::Player2) => 2,
+            })
+            .collect()
+    }
+
+    pub fn valid_moves(&self) -> Vec<usize> {
+        (0..self.cols()).filter_map(|col| match self.board.token_at(col, self.rows()-1) {
+            None => Some(col + 1),
+            Some(_) => None,
+        }).collect()
     }
 }
 

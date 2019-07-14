@@ -49,7 +49,6 @@ impl fmt::Display for InvalidColumnError {
 
 impl error::Error for InvalidColumnError {}
 
-#[derive(Clone)]
 pub struct Board<T: Token> {
     cols: usize,
     rows: usize,
@@ -109,6 +108,25 @@ impl <T: Token> Board<T> {
     pub fn rows(&self) -> usize {
         self.rows
     }
+    
+    pub fn token_at(&self, col: usize, row: usize) -> Option<T> {
+        match self.cells[col][row] {
+            CellState::Empty | CellState::Colored => None,
+            CellState::Filled(ref p) | CellState::Highlighted(ref p) => Some(p.clone()),
+        }
+    }
+}
+
+impl <'a, T: Token> std::clone::Clone for Board<T> {
+    fn clone(&self) -> Board<T> {
+        Board {
+            cols: self.cols,
+            rows: self.rows,
+            cells: self.cells.to_vec().iter()
+                .map(|row| row.clone())
+                .collect::<Vec<_>>().into_boxed_slice()
+        }
+    }
 }
 
 struct Row<'a, T: Token>(&'a Board<T>, usize);
@@ -136,19 +154,11 @@ impl <T: Token> fmt::Display for Board<T> {
     }
 }
 
-impl <T: Token> std::ops::Index<(usize, usize)> for Board<T> {
-    type Output = CellState<T>;
-
-    fn index(&self, (col, row): (usize, usize)) -> &Self::Output {
-        &self.cells[col][row]
-    }
-}
-
-impl <T: Token> std::ops::IndexMut<(usize, usize)> for Board<T> {
-    fn index_mut(&mut self, (col, row): (usize, usize)) -> &mut Self::Output {
-        &mut self.cells[col][row]
-    }
-}
+// impl <T: Token> std::ops::IndexMut<(usize, usize)> for Board<T> {
+//     fn index_mut(&mut self, (col, row): (usize, usize)) -> &mut Self::Output {
+//         &mut self.cells[col][row]
+//     }
+// }
 
 // impl <T: Token> std::clone::Clone for Board<T> {
 //     fn clone(&self) -> Board<T> {

@@ -7,4 +7,4 @@ authors = ["Steve Lam <sla336@sfu.ca>"]
 trees = "0.2.1"
 termion = "1.5.3"
 rand = "0.7.0"
-
+itertools = "0.8.0"
