@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "file": "bundle.css",
+  "sources": [
+    "../web/Board.svelte"
+  ],
+  "sourcesContent": [
+    "<script>\n    import { createEventDispatcher, onDestroy } from 'svelte';\n\n\tconst dispatch = createEventDispatcher();\n\tfunction clickColumn(col) {\n\t\tdispatch('column', col + 1);\n\t}\n\n    export let board;\n    export let moves;\n    export let disabled;\n    \n    let num_cols;\n    let num_rows;\n    let grid;\n\n    onDestroy(board.subscribe((board) => {\n        num_cols = board.cols();\n        num_rows = board.rows();\n        grid = Array.from({length: num_rows}, (_, row) => Array.from({length: num_cols}, (_, col) => [col, num_rows - row - 1, board.token_at(col, num_rows - row - 1)]))\n    }));\n\n    let valid_moves;\n\n    let hovered_column = null;\n\n    onDestroy(moves.subscribe((moves) => {\n        valid_moves = moves.map((col) => col - 1);\n        if (hovered_column !== null && !valid_moves.includes(hovered_column)) {\n            hovered_column = null;\n        }\n    }));\n</script>\n\n<style>\ntd {\n    width: 50px;\n    height: 50px;\n    border: 1px gray solid;\n}\ntd.highlighted {\n    background-color: aquamarine;\n}\n</style>\n\n<table on:mouseout={() => hovered_column = null}>\n{#each grid as cells}\n    <tr>\n    {#each cells as [col, row, token]}\n        <td\n            on:click={() => !$disabled && valid_moves.includes(col) && clickColumn(col)}\n            on:mouseover={() => hovered_column = valid_moves.includes(col) ? col : null}\n            class=\"{hovered_column == col ? 'highlighted' : ''}\"\n        >\n        {#if token === undefined}\n            &nbsp;\n        {:else}\n            {token}\n        {/if}\n        </td>\n    {/each}\n    </tr>\n{/each}\n</table>\n"
+  ],
+  "names": [],
+  "mappings": "AAmCA,EAAE,cAAC,CAAC,AACA,KAAK,CAAE,IAAI,CACX,MAAM,CAAE,IAAI,CACZ,MAAM,CAAE,GAAG,CAAC,IAAI,CAAC,KAAK,AAC1B,CAAC,AACD,EAAE,YAAY,cAAC,CAAC,AACZ,gBAAgB,CAAE,UAAU,AAChC,CAAC"
+}
