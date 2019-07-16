@@ -1,10 +1,23 @@
 [package]
-name = "a5-connect-4"
+name = "connect-4"
 version = "0.1.0"
 authors = ["Steve Lam <sla336@sfu.ca>"]
 
+[[bin]]
+name = "connect-4"
+path = "src/main.rs"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "libc4"
+path = "src/main.rs"
+
 [dependencies]
-trees = "0.2.1"
-termion = "1.5.3"
-rand = "0.7.0"
 itertools = "0.8.0"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rand = "0.7.0"
+termion = "1.5.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = {version = "0.2.48", features = ["serde-serialize"]}

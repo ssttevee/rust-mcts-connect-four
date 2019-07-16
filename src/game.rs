@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 extern crate termion;
 
 use std::error;
@@ -5,36 +6,10 @@ use std::fmt;
 use std::cmp;
 use std::iter;
 
-use board;
 use board::{Board, Token};
 
-#[derive(Copy, Clone, PartialEq)]
-pub enum Player {
-    Player1,
-    Player2,
-}
-
-impl fmt::Display for Player {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Player::{Player1, Player2};
-
-        write!(f, "Player {}", match self {
-            Player1 => 1,
-            Player2 => 2,
-        })
-    }
-}
-
-impl Token for Player {
-    fn color(&self) -> &dyn termion::color::Color {
-        use self::Player::{Player1, Player2};
-
-        match self {
-            Player1 => &termion::color::Red,
-            Player2 => &termion::color::Green,
-        }
-    }
-}
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
 #[derive(Debug)]
 pub struct GameOverError;
@@ -49,17 +24,33 @@ impl error::Error for GameOverError {}
 
 pub type State = Vec<u8>;
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(Clone)]
 pub struct Game {
-    board: Board<Player>,
+    board: Board,
     win_len: usize,
 
-    current_player: Player,
+    current_player: Token,
 
-    winner: Option<(Player, Box<[(usize, usize)]>)>,
+    winner: Option<(Token, Box<[(usize, usize)]>)>,
 }
 
 impl Game {
+    pub fn custom(cols: usize, rows: usize, win_length: usize) -> Game {
+        Game {
+            board: Board::new(cols, rows),
+            win_len: win_length,
+
+            current_player: Token::Player1,
+
+            winner: None,
+        }
+    }
+
+    pub fn new() -> Game {
+        Game::custom(7, 6, 4)
+    }
+
     fn search_ranges<'a>(&'a self, col: usize, row: usize) -> Box<dyn iter::Iterator<Item = Box<dyn iter::Iterator<Item = (usize, usize)> + 'a>> + 'a> {
         let mut iter: Box<dyn iter::Iterator<Item = Box<dyn iter::Iterator<Item = (usize, usize)> + 'a>> + 'a> = Box::new(iter::empty());
 
@@ -139,7 +130,7 @@ impl Game {
         iter
     }
 
-    fn check_winner(&self, player: Player, col: usize, row: usize) -> Option<Box<[(usize, usize)]>> {
+    fn check_winner(&self, player: Token, col: usize, row: usize) -> Option<Box<[(usize, usize)]>> {
         let ranges = self.search_ranges(col, row);
         'outer: for range in ranges {
             let v = range.collect::<Vec<_>>();
@@ -158,6 +149,8 @@ impl Game {
     }
 
     pub fn drop(&mut self, col: usize) -> Result<usize, Box<dyn error::Error>> {
+        use board::Token::{Player1, Player2};
+
         if self.over() {
             return Err(Box::new(GameOverError))
         }
@@ -169,23 +162,29 @@ impl Game {
         }
 
         self.current_player = match self.current_player {
-            Player::Player1 => Player::Player2,
-            Player::Player2 => Player::Player1,
+            Player1 => Player2,
+            Player2 => Player1,
         };
 
         Ok(row)
     }
 
+    pub fn valid_moves(&self) -> Vec<usize> {
+        (0..self.cols()).filter_map(|col| match self.board.token_at(col, self.rows()-1) {
+            None => Some(col + 1),
+            Some(_) => None,
+        }).collect()
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+impl Game {
     pub fn over(&self) -> bool {
         self.winner != None || self.valid_moves().len() == 0
     }
 
-    pub fn current_player(&self) -> Player {
+    pub fn current_player(&self) -> Token {
         self.current_player
-    }
-
-    pub fn winner(&self) -> Option<(Player, Box<[(usize, usize)]>)> {
-        self.winner.clone()
     }
 
     pub fn cols(&self) -> usize {
@@ -200,43 +199,77 @@ impl Game {
         iproduct!(0..self.cols(), 0..self.rows())
             .map(|(col, row)| match self.board.token_at(col, row) {
                 None => 0,
-                Some(Player::Player1) => 1,
-                Some(Player::Player2) => 2,
+                Some(Token::Player1) => 1,
+                Some(Token::Player2) => 2,
             })
             .collect()
     }
 
-    pub fn valid_moves(&self) -> Vec<usize> {
-        (0..self.cols()).filter_map(|col| match self.board.token_at(col, self.rows()-1) {
-            None => Some(col + 1),
-            Some(_) => None,
-        }).collect()
-    }
-
-    pub fn board(&self) -> Board<Player> {
+    pub fn board(&self) -> Board {
         self.board.clone()
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl Game {
+    pub fn winner(&self) -> Option<(Token, Box<[(usize, usize)]>)> {
+        self.winner.clone()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl Game {
+    #[wasm_bindgen(constructor)]
+    pub fn ctor(cols: Option<usize>, rows: Option<usize>, win_length: Option<usize>) -> Result<Game, JsValue> {
+        if cols == None && rows == None && win_length == None {
+            Ok(Game::new())
+        } else if let (Some(c), Some(r), Some(l)) = (cols, rows, win_length) {
+            Ok(Game::custom(c, r, l))
+        } else if let (Some(c), Some(r), None) = (cols, rows, win_length) {
+            Ok(Game::custom(c, r, 4))
+        } else {
+            Err("invalid arguments".into())
+        }
+    }
+
+    #[wasm_bindgen(js_name = "valid_moves")]
+    pub fn valid_moves_wasm(&self) -> Box<[JsValue]> {
+        self.valid_moves().into_iter()
+            .map(|col| JsValue::from(col as u32))
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+    }
+
+    pub fn winner(&self) -> Option<Token> {
+        let (token, _) = self.winner.clone()?;
+        Some(token)
+    }
+
+    pub fn winner_cells(&self) -> Option<Box<[JsValue]>> {
+        let (_, cells) = self.winner.clone()?;
+        Some(
+            cells.iter()
+                .map(|(col, row)| JsValue::from_serde(&vec![*col, *row]).unwrap())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        )
+    }
+
+    #[wasm_bindgen(js_name = "drop")]
+    pub fn drop_wasm(&mut self, col: usize) -> Result<usize, JsValue> {
+        match self.drop(col) {
+            Err(err) => Err(format!("{}", err).into()),
+            Ok(row) => Ok(row),
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 impl fmt::Display for Game {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.board)
     }
-}
-
-pub fn custom(cols: usize, rows: usize, win_length: usize) -> Game {
-    Game {
-        board: board::new(cols, rows),
-        win_len: win_length,
-
-        current_player: Player::Player1,
-
-        winner: None,
-    }
-}
-
-pub fn new() -> Game {
-    custom(7, 6, 4)
 }
 
 #[cfg(test)]
@@ -247,14 +280,14 @@ mod tests {
     use self::rand::Rng;
 
     fn print_search_ranges(cols: usize, rows: usize, wins: usize, col: usize, row: usize) {
-        let mut game = custom(cols, rows, wins);
+        let mut game = Game::custom(cols, rows, wins);
 
         game.board.highlight(col, row);
         for range in game.search_ranges(col, row) {
             let mut board = game.board.clone();
             for (col, row) in range {
                 print!("({},{}) ", col, row);
-                board.fill(col, row, Player::Player1);
+                board.fill(col, row, Token::Player1).unwrap();
             }
 
             println!();

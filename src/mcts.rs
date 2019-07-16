@@ -1,16 +1,59 @@
-extern crate rand;
-
 use std::collections::HashMap;
+
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::{Duration, SystemTime};
 
 use game::{Game, State};
 
-use rand::Rng;
-use rand::distributions::{WeightedIndex, Distribution};
-use rand::prelude::ThreadRng;
+#[cfg(not(target_arch = "wasm32"))]
+extern crate rand;
 
+#[cfg(not(target_arch = "wasm32"))]
+fn random() -> f64 {
+    rand::random()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = Math)]
+    fn random() -> f64;
+
+    #[wasm_bindgen(js_namespace = Date)]
+    fn now() -> usize;
+}
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub struct MCTS {
     memory: HashMap<State, Vec<(f64, usize)>>,
+}
+
+fn random_weighted(weights: Vec<f64>) -> usize {
+    let n = weights.len();
+    if n == 0 {
+        panic!("no values")
+    }
+
+    let sum = weights.iter().fold(0.0, |sum, w| sum + w);
+    if sum == 0.0 {
+        return (random() * n as f64) as usize
+    }
+
+    let value = random();
+    let mut progress = 0.0;
+    for (i, weight) in weights.iter().enumerate() {
+        let normalized = weight / sum;
+        if value < progress + normalized {
+            return i
+        }
+
+        progress += normalized;
+    }
+
+    unreachable!()
 }
 
 fn winrate((score, games): (f64, usize)) -> f64 {
@@ -41,17 +84,11 @@ impl MCTS {
             .collect::<Vec<_>>()
     }
 
-    fn pick_move(&self, rng: &mut ThreadRng, state: &State, choices: &Vec<usize>) -> usize {
-        let weights = self.move_weights(state, choices);
-        if weights.iter().all(|w| *w == 0.0) {
-            return choices[rng.gen_range(0, choices.len())]
-        }
-
-        let dist = WeightedIndex::new(&weights).unwrap();
-        choices[dist.sample(rng)]
+    fn pick_move(&self, state: &State, choices: &Vec<usize>) -> usize {
+        choices[random_weighted(self.move_weights(state, choices))]
     }
 
-    fn simulate(&mut self, rng: &mut ThreadRng, mut game: Game) -> (usize, usize, usize) {
+    pub fn simulate(&mut self, mut game: Game) -> (usize, usize, usize) {
         let mut my_moves: Vec<(State, usize)> = Vec::new();
         let mut their_moves: Vec<(State, usize)> = Vec::new();
 
@@ -67,7 +104,7 @@ impl MCTS {
                 self.memory.insert(state.clone(), vec![(0.0,0); cols]);
             }
 
-            let col = self.pick_move(rng, &state, &game.valid_moves());
+            let col = self.pick_move(&state, &game.valid_moves());
 
             // keep track of each players' moves
             if i % 2 == 0 {
@@ -95,12 +132,15 @@ impl MCTS {
 
         results
     }
+}
 
-    pub fn think(&mut self, rng: &mut ThreadRng, game: &Game, duration: Duration) -> [usize; 4] {
+#[cfg(not(target_arch = "wasm32"))]
+impl MCTS {
+    pub fn think(&mut self, game: &Game, duration: Duration) -> [usize; 4] {
         let now = SystemTime::now();
         let mut results = [0 as usize; 4];
         while now.elapsed().unwrap() < duration {
-            let (wins, losses, ties) = self.simulate(rng, game.to_owned());
+            let (wins, losses, ties) = self.simulate(game.to_owned());
             results[0] += wins;
             results[1] += losses;
             results[2] += ties;
@@ -111,6 +151,61 @@ impl MCTS {
     }
 }
 
-pub fn new() -> MCTS {
-    MCTS { memory: HashMap::new() }
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+impl MCTS {
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
+    pub fn new() -> MCTS {
+        MCTS { memory: HashMap::new() }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl MCTS {
+    #[wasm_bindgen(js_name = "simulate")]
+    pub fn simulate_wasm(&mut self, game: &Game) -> Box<[JsValue]> {
+        let result = self.simulate(game.clone());
+        vec![
+            JsValue::from(result.0 as u32),
+            JsValue::from(result.1 as u32),
+            JsValue::from(result.2 as u32),
+        ].into_boxed_slice()
+    }
+
+    #[wasm_bindgen(js_name = "think")]
+    pub fn think(&mut self, game: &Game, duration: usize) -> Box<[JsValue]> {
+        let start = now();
+        let mut results = [0 as usize; 4];
+        while now() - start < duration {
+            let (wins, losses, ties) = self.simulate(game.to_owned());
+            results[0] += wins;
+            results[1] += losses;
+            results[2] += ties;
+            results[3] += 1;
+        }
+
+        vec![
+            JsValue::from(results[0] as u32),
+            JsValue::from(results[1] as u32),
+            JsValue::from(results[2] as u32),
+            JsValue::from(results[3] as u32),
+        ].into_boxed_slice()
+    }
+
+    #[wasm_bindgen(js_name = "move_weights")]
+    pub fn move_weights_wasm(&self, state: State, moves: Box<[JsValue]>) -> Result<Box<[JsValue]>, JsValue> {
+        let mut resolved_moves = Vec::<usize>::new();
+        for value in moves.iter() {
+            if let Some(num) = value.as_f64() {
+                resolved_moves.push(num as usize);
+            } else {
+                return Err("moves must be an array of numbers".into())
+            }
+        }
+
+        Ok(self.move_weights(&state, &resolved_moves).into_iter()
+            .map(|col| JsValue::from(col))
+            .collect::<Vec<_>>()
+            .into_boxed_slice())
+    }
 }

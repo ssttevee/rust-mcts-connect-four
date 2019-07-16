@@ -1,2 +1,4 @@
 /target
 **/*.rs.bk
+/public/bundle*
+/node_modules
