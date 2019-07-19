@@ -157,7 +157,7 @@ impl Game {
 
         let row = self.board.drop(col, self.current_player)?;
 
-        if let Some(cells) = self.check_winner(self.current_player, col-1, row) {
+        if let Some(cells) = self.check_winner(self.current_player, col, row) {
             self.winner = Some((self.current_player, cells));
         }
 
@@ -171,7 +171,7 @@ impl Game {
 
     pub fn valid_moves(&self) -> Vec<usize> {
         (0..self.cols()).filter_map(|col| match self.board.token_at(col, self.rows()-1) {
-            None => Some(col + 1),
+            None => Some(col),
             Some(_) => None,
         }).collect()
     }

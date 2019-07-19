@@ -3,7 +3,7 @@
 
 	const dispatch = createEventDispatcher();
 	function clickColumn(col) {
-		dispatch('column', col + 1);
+		dispatch('column', col);
 	}
 
     export let board;
@@ -25,7 +25,7 @@
     let hovered_column = null;
 
     onDestroy(moves.subscribe((moves) => {
-        valid_moves = moves.map((col) => col - 1);
+        valid_moves = moves.map((col) => col);
         if (hovered_column !== null && !valid_moves.includes(hovered_column)) {
             hovered_column = null;
         }

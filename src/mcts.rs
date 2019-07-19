@@ -80,7 +80,7 @@ impl MCTS {
         let records = &self.memory[state];
 
         moves.iter()
-            .map(|col| winrate(records[col - 1]))
+            .map(|col| winrate(records[*col]))
             .collect::<Vec<_>>()
     }
 
@@ -111,7 +111,7 @@ impl MCTS {
                 &mut my_moves
             } else {
                 &mut their_moves
-            }.push((state, col - 1));
+            }.push((state, col));
 
             game.drop(col).unwrap();
 

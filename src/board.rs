@@ -99,12 +99,10 @@ impl Board {
         None
     }
 
-    pub fn drop(&mut self, mut column: usize, token: Token) -> Result<usize, InvalidColumnError> {
-        if column < 1 || self.cols() < column {
+    pub fn drop(&mut self, column: usize, token: Token) -> Result<usize, InvalidColumnError> {
+        if self.cols() - 1 < column {
             return Err(InvalidColumnError)
         };
-
-        column -= 1;
         
         let row = match self.top(column) {
             None => return Err(InvalidColumnError),
@@ -232,8 +230,6 @@ impl <'a> fmt::Display for Row<'a> {
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let row_sep = (0..self.cols).map(|_| "----").collect::<Vec<_>>().join("");
-        
-        writeln!(f, "| {} |", (1..=self.cols).map(|i| i.to_string()).collect::<Vec<_>>().join(" | "))?;
         for i in (0..self.rows).rev() {
             writeln!(f, "-{}", row_sep)?;
             writeln!(f, "| {} |", Row(self, i))?;

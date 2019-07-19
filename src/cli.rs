@@ -34,7 +34,7 @@ fn player_move<F: Fn(&Game) -> ()>(game: &mut Game, input: &mut io::Lines<io::St
         print!(
             "What's your move? [{}]: ",
             game.valid_moves().iter()
-                .map(|col| col.to_string())
+                .map(|col| (col + 1).to_string())
                 .collect::<Vec<_>>()
                 .join(","),
         );
@@ -57,7 +57,7 @@ fn player_move<F: Fn(&Game) -> ()>(game: &mut Game, input: &mut io::Lines<io::St
             continue;
         }
         
-        let col = match usize::from_str(line.as_ref()) {
+        let mut col = match usize::from_str(line.as_ref()) {
             Err(err) => {
                 message = Some(format!("{}", err));
                 continue;
@@ -65,6 +65,12 @@ fn player_move<F: Fn(&Game) -> ()>(game: &mut Game, input: &mut io::Lines<io::St
             Ok(col) => col,
         };
 
+        if col < 1 || col > game.cols() {
+            message = Some(format!("please enter a valid move"));
+            continue;
+        }
+
+        col -= 1;
         match game.drop(col) {
             Err(err) => {
                 message = Some(format!("{}", err));
@@ -100,12 +106,17 @@ fn mcts_move(game: &mut Game, mcts: &MCTS) -> (usize, usize) {
     (col, game.drop(col).unwrap())
 }
 
+fn print_board_top(cols: usize) {
+    println!("| {} |", (1..=cols).map(|i| i.to_string()).collect::<Vec<_>>().join(" | "))
+}
+
 fn print_board(game: &Game, last_move: Option<(usize, usize)>) {
     let mut board = game.board();
     if let Some((col, row)) = last_move {
-        board.highlight(col - 1, row)
+        board.highlight(col, row);
     }
 
+    print_board_top(game.cols());
     println!("{}", board);
 }
 
@@ -157,7 +168,9 @@ pub fn start() {
         None => None,
     };
 
-    println!("{}{}", termion::clear::All, board);
+    println!("{}", termion::clear::All);
+    print_board_top(board.cols());
+    println!("{}", board);
 
     match winner {
         Some(player) => match player {
