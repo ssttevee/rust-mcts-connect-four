@@ -1,3 +1,3 @@
-td.svelte-xpf6y2{width:50px;height:50px;border:1px gray solid}td.highlighted.svelte-xpf6y2{background-color:aquamarine}
+td.svelte-vlput1{width:50px;height:50px;border:1px gray solid;text-align:center}td.svelte-vlput1:not(.empty)::before{content:'\25CF'}td.player-1.svelte-vlput1{color:red}td.player-2.svelte-vlput1{color:green}td.hovered.svelte-vlput1:not(.highlighted){background-color:aquamarine}td.highlighted.svelte-vlput1{background-color:gold}
 
 /*# sourceMappingURL=bundle.css.map */
