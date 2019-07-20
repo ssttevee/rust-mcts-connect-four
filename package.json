@@ -16,7 +16,7 @@
   },
   "scripts": {
     "build": "rollup -c",
-    "build:wasm": "wasm-pack build --target web && cp pkg/libc4_bg.wasm public/bundle_bg.wasm",
+    "build:wasm": "wasm-pack build --target web && cp pkg/libc4_bg.wasm public/mcts_bg.wasm",
     "autobuild": "rollup -c -w",
     "dev": "run-p start:dev autobuild",
     "start": "sirv public --single",

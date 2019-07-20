@@ -1,4 +1,5 @@
 /target
 **/*.rs.bk
 /public/bundle*
+/public/mcts*
 /node_modules

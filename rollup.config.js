@@ -6,8 +6,8 @@ import { terser } from 'rollup-plugin-terser';
 
 const production = !process.env.ROLLUP_WATCH;
 
-export default {
-	input: 'web/main.js',
+export default [{
+	input: 'web/main/index.js',
 	output: {
 		sourcemap: true,
 		format: 'iife',
@@ -47,4 +47,12 @@ export default {
 	watch: {
 		clearScreen: false
 	}
-};
+}, {
+	input: 'web/worker/index.js',
+	output: {
+		sourcemap: true,
+		format: 'esm',
+		name: 'worker',
+		file: 'public/mcts.js'
+	}
+}];

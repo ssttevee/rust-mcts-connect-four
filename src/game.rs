@@ -204,16 +204,16 @@ impl Game {
             })
             .collect()
     }
-
-    pub fn board(&self) -> Board {
-        self.board.clone()
-    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Game {
     pub fn winner(&self) -> Option<(Token, Box<[(usize, usize)]>)> {
         self.winner.clone()
+    }
+
+    pub fn board(&self) -> Board {
+        self.board.clone()
     }
 }
 
@@ -262,6 +262,22 @@ impl Game {
             Err(err) => Err(format!("{}", err).into()),
             Ok(row) => Ok(row),
         }
+    }
+
+    pub fn board(&self) -> JsValue {
+        JsValue::from_serde(&(0..self.cols())
+            .into_iter()
+            .map(|col| (0..self.rows())
+                .into_iter()
+                .map(|row| match self.board.token_at(col, row) {
+                    Some(token) => Some(match token {
+                        Token::Player1 => 0,
+                        Token::Player2 => 1,
+                    }),
+                    None => None,
+                })
+                .collect::<Vec<_>>())
+            .collect::<Vec<_>>()).unwrap()
     }
 }
 
