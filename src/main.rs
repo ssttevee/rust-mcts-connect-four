@@ -10,7 +10,9 @@ extern crate termion;
 
 pub mod game;
 pub mod mcts;
+pub mod hbot;
 pub mod board;
+pub mod common;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod cli;

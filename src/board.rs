@@ -88,7 +88,7 @@ pub struct Board {
 }
 
 impl Board {
-    fn top(&self, col: usize) -> Option<usize> {
+    pub fn top(&self, col: usize) -> Option<usize> {
         for i in 0..self.rows {
             match self.cells[col][i] {
                 CellState::Empty => return Some(i),

@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use game::Game;
 use mcts::MCTS;
+use hbot;
 
 #[derive(Debug)]
 struct Done;
@@ -106,6 +107,11 @@ fn mcts_move(game: &mut Game, mcts: &MCTS) -> (usize, usize) {
     (col, game.drop(col).unwrap())
 }
 
+fn hbot_move(game: &mut Game) -> (usize, usize) {
+    let col = hbot::next_move(&game);
+    (col, game.drop(col).unwrap())
+}
+
 fn print_board_top(cols: usize) {
     println!("| {} |", (1..=cols).map(|i| i.to_string()).collect::<Vec<_>>().join(" | "))
 }
@@ -120,6 +126,59 @@ fn print_board(game: &Game, last_move: Option<(usize, usize)>) {
     println!("{}", board);
 }
 
+enum Opponent {
+    MCTS,
+    HBOT,
+}
+
+fn select_opponent(input: &mut io::Lines<io::StdinLock<'_>>) -> Result<Opponent, Done> {
+    let mut message: Option<String> = None;
+
+    println!("Opponents\n1: MCTS\n2: HBOT\n");
+
+    loop {
+        if let Some(msg) = message {
+            println!("{}", msg);
+        }
+
+        print!("Who's your opponent? [1,2]: ");
+        io::stdout().flush().unwrap();
+        
+        let line = match input.next().transpose() {
+            Err(err) => {
+                message = Some(format!("{}", err));
+                continue;
+            },
+            Ok(line) => match line {
+                None => return Err(Done),
+                Some(line) => line,
+            },
+        };
+
+        if line.len() == 0 {
+            message = Some(String::from("please enter a number"));
+            continue;
+        }
+        
+        let col = match usize::from_str(line.as_ref()) {
+            Err(err) => {
+                message = Some(format!("{}", err));
+                continue;
+            },
+            Ok(col) => col,
+        };
+
+        break match col {
+            1 => Ok(Opponent::MCTS),
+            2 => Ok(Opponent::HBOT),
+            _ => {
+                message = Some(format!("please select a valid opponent"));
+                continue;
+            }
+        }
+    }
+}
+
 pub fn start() {
     use board::Token::{Player1, Player2};
 
@@ -128,6 +187,8 @@ pub fn start() {
 
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
+
+    let opponent = select_opponent(&mut lines).unwrap();
 
     let mut last_move: Option<(usize, usize)> = None;
     while !game.over() {
@@ -143,15 +204,22 @@ pub fn start() {
             },
             Player2 => {
                 println!("{}", termion::clear::All);
-                print_board(&game, last_move);
-                print!("thinking...");
-                io::stdout().flush().unwrap();
+                match opponent {
+                    Opponent::MCTS => {
+                        print_board(&game, last_move);
+                        print!("thinking...");
+                        io::stdout().flush().unwrap();
 
-                let results = mcts.think(&game, Duration::new(1, 0));
+                        let results = mcts.think(&game, Duration::new(1, 0));
 
-                println!("{}", termion::clear::All);
-                println!("ran {} simulations; ({},{},{})", results[3], results[0], results[1], results[2]);
-                last_move = Some(mcts_move(&mut game, &mcts));
+                        println!("{}", termion::clear::All);
+                        println!("ran {} simulations; ({},{},{})", results[3], results[0], results[1], results[2]);
+                        last_move = Some(mcts_move(&mut game, &mcts));
+                    },
+                    Opponent::HBOT => {
+                        last_move = Some(hbot_move(&mut game));
+                    }
+                }
             }
         }
     }
